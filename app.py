@@ -8,12 +8,26 @@ from PIL import Image
 import google.generativeai as genai
 import fitz  # PyMuPDF
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# Add error handling for API key
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    st.error("Google API key not found. Please set it in the Streamlit Cloud settings.")
+    st.stop()
+
+try:
+    genai.configure(api_key=api_key)
+except Exception as e:
+    st.error(f"Error configuring Google API: {str(e)}")
+    st.stop()
 
 def get_gemini_response(input,pdf_content,prompt):
-    model=genai.GenerativeModel("gemini-1.5-flash")
-    response=model.generate_content([input,pdf_content[0],prompt])
-    return response.text
+    try:
+        model=genai.GenerativeModel("gemini-1.5-flash")
+        response=model.generate_content([input,pdf_content[0],prompt])
+        return response.text
+    except Exception as e:
+        st.error(f"Error generating response: {str(e)}")
+        return None
 
 def input_pdf_setup(uploaded_file):
     if uploaded_file is not None:
@@ -80,12 +94,17 @@ the job description. First the output should come as percentage and then keyword
 
 if submit1:
     if uploaded_file is not None:
-        pdf_content=input_pdf_setup(uploaded_file)
-        response=get_gemini_response(input_prompt1,pdf_content,input_text)
-        st.subheader("The Repsonse is")
-        st.write(response)
+        with st.spinner("Analyzing resume..."):
+            try:
+                pdf_content = input_pdf_setup(uploaded_file)
+                response = get_gemini_response(input_prompt1, pdf_content, input_text)
+                if response:
+                    st.subheader("Analysis Result")
+                    st.write(response)
+            except Exception as e:
+                st.error(f"Error processing resume: {str(e)}")
     else:
-        st.write("Please uplaod the resume")
+        st.warning("Please upload a resume")
 
 elif submit2:
     if uploaded_file is not None:
@@ -104,3 +123,8 @@ elif submit3:
         st.write(response)
     else:
         st.write("Please uplaod the resume")
+
+# Debug information
+# st.write("Debug Information:")
+# st.write(f"API Key present: {'Yes' if os.getenv('GOOGLE_API_KEY') else 'No'}")
+# st.write("---")
