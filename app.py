@@ -1,13 +1,12 @@
 from dotenv import load_dotenv
-
 load_dotenv()
 import base64
 import streamlit as st
 import os
 import io
 from PIL import Image
-import pdf2image
 import google.generativeai as genai
+import fitz  # PyMuPDF
 
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
@@ -18,21 +17,24 @@ def get_gemini_response(input,pdf_content,prompt):
 
 def input_pdf_setup(uploaded_file):
     if uploaded_file is not None:
-        # convert the pdf to image
-        images = pdf2image.convert_from_bytes(uploaded_file.read())
+        # Read PDF
+        pdf_bytes = uploaded_file.read()
         
-        first_page = images[0]
+        # Convert PDF to image using PyMuPDF
+        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
+        first_page = pdf_document[0]
+        pix = first_page.get_pixmap()
         
-        # convert to bytes
+        # Convert to bytes
         img_byte_arr = io.BytesIO()
-        first_page.save(img_byte_arr, format='JPEG')
+        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        img.save(img_byte_arr, format='JPEG')
         img_byte_arr = img_byte_arr.getvalue()
         
         pdf_parts = [
             {
                 "mime_type": "image/jpeg",
-                "data": base64.b64encode(img_byte_arr).decode(),# encode to base64
-                
+                "data": base64.b64encode(img_byte_arr).decode(),
             }
         ]
         
